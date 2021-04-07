@@ -1,86 +1,59 @@
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 public class Server {
-    /**
-     *
-     * @param args
-     * @throws InterruptedException
-     */
-    public static void main(String[] args) throws InterruptedException {
-//  стартуем сервер на порту 3345
+    static String protocol = "TCP";
+    private final static int UDP_SERVICE_PORT = 50001;
+    private final static int TCP_SERVICE_PORT = 3345;
+    private final static String DOWNLOAD_PATH = "C:\\Users\\Leonid\\Downloads\\1GB.zip";
 
-        try (ServerSocket server= new ServerSocket(3345)){
-// становимся в ожидание подключения к сокету под именем - "client" на серверной стороне
-            Socket client = server.accept();
 
-// после хэндшейкинга сервер ассоциирует подключающегося клиента с этим сокетом-соединением
-            System.out.println(server.getInetAddress());
-            System.out.print("Connection accepted.");
+    public static void main(String[] args) throws IOException {
 
-// инициируем каналы для  общения в сокете, для сервера
+        //DatagramSocket udpServer = new DatagramSocket(UDP_SERVICE_PORT);
+        //DatagramPacket inputPacket;
 
-// канал записи в сокет
-            DataOutputStream out = new DataOutputStream(client.getOutputStream());
-            System.out.println("DataOutputStream  created");
+        byte[] udpReceivingDataBuffer = new byte[1024];
+        byte[] udpSendingDataBuffer = new byte[1024];
 
-            // канал чтения из сокета
-            DataInputStream in = new DataInputStream(client.getInputStream());
-            System.out.println("DataInputStream created");
 
-// начинаем диалог с подключенным клиентом в цикле, пока сокет не закрыт
-            while(!client.isClosed()){
 
-                System.out.println("Server reading from channel");
 
-// сервер ждёт в канале чтения (inputstream) получения данных клиента
-                String entry = in.readUTF();
+        if (protocol.equals("TCP")) {
+            try {
+               ServerSocket tcpServer = new ServerSocket(TCP_SERVICE_PORT);
+                System.out.println("TCP sever waiting connection");
+                while (true) {
+                    Socket tcpClient = tcpServer.accept();
+                    System.out.println("New connection" + tcpClient.getInetAddress());
+                    InputStream inputStream = tcpClient.getInputStream();
+                    FileOutputStream receivingFile = new FileOutputStream(DOWNLOAD_PATH);
+                    long bytesSend = CopyUtil.copy(inputStream,receivingFile);
 
-// после получения данных считывает их
-                System.out.println("READ from client message - "+entry);
-
-// и выводит в консоль
-                System.out.println("Server try writing to channel");
-
-// инициализация проверки условия продолжения работы с клиентом по этому сокету по кодовому слову       - quit
-                if(entry.equalsIgnoreCase("quit")){
-                    System.out.println("Client initialize connections suicide ...");
-                    out.writeUTF("Server reply - "+entry + " - OK");
-                    out.flush();
-                    Thread.sleep(3000);
-                    break;
-                }
-
-// если условие окончания работы не верно - продолжаем работу - отправляем эхо-ответ  обратно клиенту
-                out.writeUTF("Server reply - "+entry + " - OK");
-                System.out.println("Server Wrote message to client.");
-
-// освобождаем буфер сетевых сообщений (по умолчанию сообщение не сразу отправляется в сеть, а сначала накапливается в специальном буфере сообщений, размер которого определяется конкретными настройками в системе, а метод  - flush() отправляет сообщение не дожидаясь наполнения буфера согласно настройкам системы
-                out.flush();
+                /*byte[] buf = new byte[2048];
+                int bytesRead = 0;
+                int totalBytes = 0;
+                while ((bytesRead = inputStream.read(buf)) != -1) {
+                    totalBytes += bytesRead;
+                    receivingFile.write(buf, 0, bytesRead);
+                }*/
+                System.out.println("Download finish, total " + bytesSend/1000 + " kb");
+                System.out.println("Waiting new connection");
 
             }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else if (protocol.equals("UDP")) {
+            //inputPacket = new DatagramPacket(udpReceivingDataBuffer, udpSendingDataBuffer.length);
+            System.out.println("UDP server waiting connection");
+            //udpServer.receive(inputPacket);
 
-// если условие выхода - верно выключаем соединения
-            System.out.println("Client disconnected");
-            System.out.println("Closing connections & channels.");
 
-            // закрываем сначала каналы сокета !
-            in.close();
-            out.close();
-
-            // потом закрываем сам сокет общения на стороне сервера!
-            client.close();
-
-            // потом закрываем сокет сервера который создаёт сокеты общения
-            // хотя при многопоточном применении его закрывать не нужно
-            // для возможности поставить этот серверный сокет обратно в ожидание нового подключения
-
-            System.out.println("Closing connections & channels - DONE.");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        } else
+            System.out.println("Protocol must be TCP or UDP");
     }
 }
